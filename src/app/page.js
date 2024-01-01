@@ -137,9 +137,9 @@ const Home = () => {
           </div>
 
           <div className='p-[20px] flex flex-col gap-[20px]'>
-            {commands.map((item) => {
+            {commands.map((item, index) => {
               return (
-                <div onClick={() => {
+                <div key={index} onClick={() => {
                   setModal(false)
                 }} className='flex gap-[20px]'>
                   <img className='w-[30px]' src='/git.svg'></img>
