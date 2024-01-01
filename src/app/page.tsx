@@ -1,5 +1,10 @@
+"use client"
+
+import { collection, doc, getDocs, onSnapshot, updateDoc } from 'firebase/firestore'
 import Image from 'next/image'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { db } from '../../firebase'
+import { motion } from 'framer-motion'
 
 const Home = () => {
 
@@ -59,18 +64,96 @@ const Home = () => {
   let weeks = ['Monday', 'Tuesday', 'Wenesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
   let month = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
+  let commands = [
+    {
+      name: 'Directory Files'
+    },
+    {
+      name: 'Comments'
+    }
+  ]
 
   let date = new Date()
   let day = date.getDay()
   let gmonth = date.getMonth()
   let us = date.toLocaleString('en-US').split(' ')[2]
 
+  const HandleKey = (e) => {
+    if (e.key == '/') {
+      console.log('Open')
+    }
+  }
+
+
+  let [detail, setDetail] = useState([])
+  let [modal, setModal] = useState(false)
+
+  const getDetail = async () => {
+    return new Promise((resolve, reject) => {
+      onSnapshot(collection(db, 'detail'), (snapshot) => {
+        let payload = snapshot.docs.map((item) => {
+          return {
+            ...item.data(),
+            detailId: item.id
+          }
+        })
+
+        resolve(payload)
+      })
+    })
+  }
+
+  const init = async () => {
+    let dataDetail = await getDetail()
+
+    setDetail(dataDetail)
+  }
+
+
+
+  useEffect(() => {
+
+    init()
+
+    document.addEventListener('keydown', HandleKey)
+
+    return () => {
+      document.addEventListener('keydown', HandleKey)
+    }
+  }, [detail])
+
 
   return (
     <main>
 
+      <motion.div initial={{ opacity: 0 }} animate={modal ? { opacity: 1 } : { opacity: 0 }} className={`fixed w-[100%] h-[100%] bg-[rgba(255,255,255,0.8)] z-[99] flex justify-center items-center ${modal ? 'pointer-events-auto' : 'pointer-events-none'}`}>
+        <motion.div className='w-[350px] h-[300px] 2xl:w-[600px] 2xl:h-[350px] bg-white rounded-[8px] shadow-[0px_5px_5px_0px_rgba(0,0,0,0.15)]'>
+          <div className='w-[100%] h-[60px] relative'>
+            <input ref={(node)=> node?.focus()} className='w-[100%] h-[100%] rounded-tl-[8px] rounded-tr-[8px] text-start border-b-[1px] border-gray-100 placeholder-gray-400 indent-[50px] outline-none text-[14px]' placeholder='Type a command or search...'></input>
+            <img className='w-[25px] absolute left-4 top-4' src='/cat.svg'></img>
+            <p onClick={()=>{
+              setModal(false)
+            }} className='text-gray-300 absolute right-4 top-4'>x</p>
+          </div>
+
+          <div className='p-[20px] flex flex-col gap-[20px]'>
+            {commands.map((item) => {
+              return (
+                <div onClick={() => {
+                  setModal(false)
+                }} className='flex gap-[20px]'>
+                  <img className='w-[30px]' src='/git.svg'></img>
+                  <p>{item.name}</p>
+                </div>
+              )
+            })}
+          </div>
+
+        </motion.div>
+      </motion.div>
+
       {/* Headers */}
-      <div className='w-[100%] h-[80px] flex justify-between items-center p-[10px] fixed bg-white z-[1]'>
+      <div className={`w-[100%] h-[80px] flex justify-between items-center p-[10px] fixed bg-white z-[1] ${modal ? 'blur-sm' : ''}`}>
 
         <div className='w-[140px] h-[70px] flex justify-center items-center gap-[10px]'>
           <Image className='rounded-full w-[50px] h-[50px] object-cover' src={'/images/cats.jpg'} width={100} height={100} alt='picture'></Image>
@@ -82,7 +165,9 @@ const Home = () => {
 
         <div className='flex gap-[5px] justify-center items-center'>
           <div className='relative'>
-            <div className='p-[10px] w-[190px] text-[12px] border-[1px] rounded-[8px] border-gray-300 z-[1] group flex items-center'><p className='text-gray-400 duration-75 transition group-hover:text-slate-900'>Search Documentation...</p></div>
+            <div onClick={() => {
+              setModal(true)
+            }} className='p-[10px] w-[190px] text-[12px] border-[1px] rounded-[8px] border-gray-300 z-[1] group flex items-center'><p className='text-gray-400 duration-75 transition group-hover:text-slate-900'>Search Documentation...</p></div>
             <div className='flex justify-center items-center absolute border-[1px] border-gray-300 top-[7px] right-[10px] h-[25px] w-[25px] rounded-[8px]'>
               <p className='text-[12px]'>/</p>
             </div>
@@ -120,7 +205,7 @@ const Home = () => {
 
 
 
-      <div className='pt-[100px] rounded-[8px] p-[10px] w-[100%] flex flex-col justify-center items-center'>
+      <div className={`pt-[100px] rounded-[8px] p-[10px] w-[100%] flex flex-col justify-center items-center ${modal ? 'blur-sm' : ''}`}>
 
         {/* <div className='w-[100%]'>
           <p className='font-bold mb-[10px]'>GADGETS</p>
@@ -198,9 +283,24 @@ const Home = () => {
         {/* Section 2 */}
 
         <div className='flex justify-between gap-[10px]'>
-          <div className='border-[1px]  border-gray-300 w-[70px] h-[70px] flex justify-center items-center flex-col rounded-[8px] cursor-pointer 2xl:w-[125px]'>
+
+          <div onClick={() => {
+
+            let hearted = JSON.parse(localStorage.getItem('hearted'))
+
+            if (!hearted) {
+              updateDoc(doc(db, 'detail', detail[0].detailId), {
+                hearts: detail[0].hearts + 1
+              }).then(() => {
+                alert("Successfully")
+                localStorage.setItem('hearted', JSON.stringify(true))
+              })
+            } else {
+              alert("หมดโควต้าการถูกใจ")
+            }
+          }} className='border-[1px]  border-gray-300 w-[70px] h-[70px] flex justify-center items-center flex-col rounded-[8px] cursor-pointer 2xl:w-[125px]'>
             <img className='w-[30px]' src='/heart.svg'></img>
-            <p className='font-bold'>1</p>
+            <p className='font-bold'>{detail && detail.length > 0 ? detail[0].hearts : '0'}</p>
           </div>
           <div className='border-[1px]  border-gray-300 w-[70px] h-[70px] rounded-[8px] flex justify-center items-center flex-col cursor-pointer 2xl:w-[125px]'>
             <img className='w-[30px]' src='/comment.svg'></img>
